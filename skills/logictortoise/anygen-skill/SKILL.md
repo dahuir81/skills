@@ -1,122 +1,277 @@
 ---
 name: anygen
-version: 2.0.0
-description: "AnyGen: AI-powered content creation suite. Create slides/PPT, documents, diagrams, websites, data visualizations, research reports, storybooks, financial analysis, and images. Supports: pitch decks, keynotes, technical docs, PRDs, white papers, architecture diagrams, flowcharts, mind maps, org charts, ER diagrams, sequence diagrams, UML, landing pages, CSV analysis, earnings research, posters, banners, comics, and more. Also trigger when: 做PPT, 写文档, 画流程图, 做网站, 分析数据, 帮我调研, 做绘本, 分析财报, 生成图片, 做海报, 思维导图, 做个架构图, 季度汇报, 竞品调研, 技术方案, 建个落地页, 做个估值, 画个故事."
-metadata:
-  requires:
-    bins: ["anygen"]
-    env: ["ANYGEN_API_KEY"]
-  install:
-    - id: node
-      kind: node
-      package: "@anygen/cli"
-      bins: ["anygen"]
-  cliHelp: "anygen --help"
+homepage: https://www.anygen.io
+description: "AI office content generator by AnyGen. Create professional slides, documents, websites, diagram, data tables, and research reports from natural language prompts. Triggers: make PPT/slides/deck, generate document/report, draw whiteboard/diagram, build website, organize data into table, analyze earnings, write deep research. Output: auto-downloaded local file + online task URL."
+env:
+  - ANYGEN_API_KEY
+permissions:
+  network:
+    - "https://www.anygen.io"
+  filesystem:
+    read:
+      - "~/.config/anygen/config.json"
+    write:
+      - "~/.config/anygen/config.json"
+      - "~/.openclaw/workspace/"
 ---
 
-# AnyGen — Content Generation Workflow
+# AnyGen
 
-## Authentication
+AnyGen is an **AI-powered general assistant** with the following capabilities:
+- **Deep Research** — Long-form research reports and industry analysis
+- **Slide / PPT** — Professional presentations with multiple style templates
+- **Doc / DOCX** — Intelligent document generation and formatting
+- **Website** — Rapid web page creation
+- **Data Analysis** — Data analysis and visualization
+- **Image** — AI image generation
+- **Storybook** — Storybook style visuals creation
+- **SmartDraw** — Diagram generation (professional / hand-drawn style)
+
+## When to use
+
+The following scenarios should **default to AnyGen**:
+
+| Scenario | Example Prompts |
+|----------|----------------|
+| Create PPT / slides | "make a product roadmap PPT", "make a quarterly review slide deck" |
+| Draw whiteboard / diagrams | "draw a user journey whiteboard", "create a system architecture whiteboard" |
+| Deep research reports | "write an AI industry deep research report", "write a competitive analysis report on EV market" |
+| Organize data into tables | "organize this data into a table", "analyze this CSV and create a summary table" |
+| Generate documents | "write a technical design document", "generate a product requirements document" |
+| Create websites | "quickly build a product landing page" |
+| Draw diagrams | "draw a microservice architecture diagram", "create a flowchart for the CI/CD pipeline" |
+| Earnings / financial analysis | "analyze NVIDIA's latest earnings with AnyGen", "summarize Tesla's Q4 financials" |
+| General AI generation | Any office content generation needs |
+
+## Security & Permissions
+
+**What this skill does:**
+- Sends task prompts and parameters to the AnyGen API at `www.anygen.io`
+- Uploads user-provided reference files to `www.anygen.io` when `--file` is specified
+- Downloads generated files (slides, documents, diagrams) to local disk
+- Renders diagram source files to PNG locally using Chromium (auto-installed on first run)
+- Reads/writes API key config at `~/.config/anygen/config.json`
+
+**What this skill does NOT do:**
+- Does not upload files unless the user explicitly provides them via `--file`
+- Does not send your API key to any endpoint other than `www.anygen.io`
+- Does not modify system configuration beyond `~/.config/anygen/config.json`
+- Does not run persistent background processes
+
+**Bundled scripts:** `scripts/anygen.py` (Python — uses `requests`), `scripts/render-diagram.sh` (Bash), `scripts/diagram-to-image.ts` (TypeScript — uses Puppeteer)
+
+Review the bundled scripts before first use to verify behavior.
+
+## Prerequisites
+
+- Python3
+- requests library: `pip3 install requests`
+- AnyGen API Key (format: `sk-xxx`)
+
+### Getting API Key
+
+If you don't have an API Key:
+
+1. Visit [AnyGen Home](https://www.anygen.io/home) to explore AnyGen's full capabilities
+2. Log in, go to **Setting** page
+3. Switch to the **Integration** tab
+4. Click to generate an API Key (format: `sk-xxx`)
+
+> **First time?** Visit [www.anygen.io/home](https://www.anygen.io/home) to browse feature introductions and usage examples.
+
+### Configuring API Key (Recommended)
+
+Save the API Key to a config file to avoid entering it every time:
 
 ```bash
-# Web login (recommended for agent usage)
-anygen auth login --no-wait
-
-# Direct API key (no browser needed)
-anygen auth login --api-key sk-xxx
-
-# Environment variable
-export ANYGEN_API_KEY=sk-xxx
+python3 ~/.openclaw/skills/anygen/anygen-suite/scripts/anygen.py config set api_key "sk-xxx"
 ```
 
-When prompting the user for an API key, MUST use Markdown link: [Get your AnyGen API Key](https://www.anygen.io/home?auto_create_openclaw_key=1)
+Config file location: `~/.config/anygen/config.json`
 
-## Rules
+**API Key Priority**: Command line argument > Environment variable `ANYGEN_API_KEY` > Config file
 
-**Follow these rules exactly.**
+## Supported Operation Types
 
-- Schema: run `anygen schema <resource.method>` to check required params and response if needed.
-- Long-running: `--wait` commands will block, MUST use `sessions_spawn` to run in the background.
-- Sending files on Feishu/Lark: Do not use the message tool to send files. It corrupts non-ASCII filenames into `%XX` garbage. Strictly follow the curl process in "Sending files".
-- **Never** output API keys or auth tokens directly.
-- **Always** confirm with user before uploading files or creating tasks.
-- Use natural language instead of exposing task_id, file_token, or CLI syntax to the user.
-- Always return links using Markdown format: `[text](url)`.
+| Operation | Description | File Download |
+|-----------|-------------|---------------|
+| `slide` | Slides / PPT | Yes |
+| `doc` | Document / DOCX | Yes |
+| `smart_draw` | Diagram (professional / hand-drawn style) | Yes (requires render to PNG) |
+| `chat` | General mode (SuperAgent) | No, task URL only |
+| `storybook` | Storybook / whiteboard | No, task URL only |
+| `data_analysis` | Data analysis | No, task URL only |
+| `website` | Website development | No, task URL only |
 
-## Steps
+---
 
-1. **Discover operations metadata**:
-   `anygen task operations`
-   Do not guess operation types. Always run to get supported operations and their estimated time and thumbnail support.
+## Skill Invocation Flow
 
-2. **Upload reference files** (skip if no reference files):
-   `anygen file upload --data '{"file":"./data.csv"}'`
-   → Save `file_token` for step 4. Tell user the file was uploaded.
+### Step 1: Collect Required Information
 
-3. **Gather requirements** (skip if requirements are already clear):
-   `anygen task prepare --data '{"operation":"slide","messages":[{"role":"user","content":"Make a Q4 report PPT"}]}'`
-   Present `reply` to user, collect their answer, then call again with `prepare_session_id` and updated `messages`:
-   `anygen task prepare --data '{"operation":"slide","prepare_session_id":"<id>","messages":[...previous messages...,{"role":"user","content":"user's answer"}]}'`
-   Repeat until `status=ready`.
-   → When ready, show `suggested_task_params.prompt` as outline, confirm with user, then use it as `prompt` in step 4.
+Before execution, **MUST ask the user**:
 
-4. **Create task**:
-   `anygen task create --data '{"operation":"slide","prompt":"...","file_tokens":["<file_token>"]}'`
-   → Tell user the task is created, share `task_url` and estimated time (from step 1).
+**Required fields:**
+1. **API Key** — `sk-xxx` format. If not configured, guide user to https://www.anygen.io/home → Setting → Integration
+2. **Operation** — slide / doc / chat / smart_draw / data_analysis / website / storybook
+3. **Prompt** — Content description
 
-5. **Wait for completion** (long-running, must run in background via `sessions_spawn`):
-   `anygen task get --params '{"task_id":"<id>"}' --wait`
+**Slide-specific (ask when operation=slide):**
+- **Style** — business / minimalist / tech / academic / creative / data-driven / nature / dark
+- **Page count** — Brief 5-8 / Standard 10-15 / Detailed 15-25 (default: AI decides)
+- **Aspect ratio** — 16:9 (projection) or 4:3 (printing)
 
-6. **Deliver** (after step 5 completes, check the result):
-   - **No files** (`output.files` empty): show `message` to user if present.
-   - **Has files + has thumbnail** (`has_thumbnail` from step 1):
-     `anygen task +download --task-id <id> --thumbnail`
-     → Send thumbnail image with `task_url` as preview. Do not download files yet — wait for user to request download or modifications (→ step 7).
-   - **Has files + no thumbnail**:
-     `anygen task +download --task-id <id>`
-     → Send files to user (see "Sending files" below).
+**Optional:**
+- Reference files (PDF, PNG, JPG, DOCX, PPTX, TXT)
+- Language: zh-CN (default) or en-US
+- Export format: varies by operation (see parameter table)
 
-7. **Modify** (on user request):
-   `anygen task message send --params '{"task_id":"<id>"}' --data '{"content":"..."}'`
-   Then wait for result (long-running, must run in background via `sessions_spawn`):
-   `anygen task message list --params '{"task_id":"<id>"}' --wait`
-   → Repeat from step 5 to re-export and deliver. All modifications reuse the same task.
-
-## Sending files
-
-When user requests file download, or when delivering files from step 6:
-`anygen task +download --task-id <id>`
-To download specific files: `anygen task +download --task-id <id> --file report.pptx`
-
-**Feishu/Lark** (message tool corrupts non-ASCII filenames, use curl instead):
-1. Get credentials: read `app_id` and `app_secret` from the config file (e.g. `cat ~/.openclaw/openclaw.json | jq '.channels.feishu'` instead of `openclaw config get`). Make sure to use the credentials matching the current account.
-2. Get token: `curl -X POST 'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal' -H 'Content-Type: application/json' -d '{"app_id":"<app_id>","app_secret":"<app_secret>"}'`
-3. Upload + Send per file type:
-   - **Images** (thumbnail, png, jpg, etc.):
-     Upload: `curl -X POST 'https://open.feishu.cn/open-apis/im/v1/images' -H 'Authorization: Bearer <tenant_access_token>' -F 'image_type=message' -F 'image=@./preview.png'`
-     Send: `curl -X POST 'https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id' -H 'Authorization: Bearer <tenant_access_token>' -H 'Content-Type: application/json' -d '{"receive_id":"<chat_id>","msg_type":"image","content":"{\"image_key\":\"<image_key>\"}"}'`
-   - **Documents** (pptx/docx/pdf, etc.):
-     Upload: `curl -X POST 'https://open.feishu.cn/open-apis/im/v1/files' -H 'Authorization: Bearer <tenant_access_token>' -F 'file_type=ppt' -F 'file=@./output.pptx' -F 'file_name=output.pptx'`
-     `file_type` values: `opus` (audio), `mp4` (video), `pdf`, `doc`, `xls`, `ppt`, `stream` (other).
-     Send: `curl -X POST 'https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id' -H 'Authorization: Bearer <tenant_access_token>' -H 'Content-Type: application/json' -d '{"receive_id":"<chat_id>","msg_type":"file","content":"{\"file_key\":\"<file_key>\"}"}'`
-
-**Other platforms:** Send via the platform's message tool.
-
-## CLI Reference
+### Step 2: Create task
 
 ```bash
-anygen <resource> <method> [flags]
+python3 ~/.openclaw/skills/anygen/anygen-suite/scripts/anygen.py create \
+  --operation slide \
+  --prompt "A presentation about the history of artificial intelligence" \
+  --style "business formal"
+# → Task ID: task_abc123xyz
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--params '<json>'` | URL/path parameters |
-| `--data '<json>'` | Request body |
-| `--dry-run` | Show the request without sending it |
-| `--wait` | Re-poll until terminal state |
-| `--timeout <ms>` | Polling timeout in milliseconds |
+Save the returned `task_id` for subsequent steps.
+
+**All `create` parameters:**
+
+| Parameter | Short | Description | Required |
+|-----------|-------|-------------|----------|
+| --operation | -o | Operation type (see table above) | Yes |
+| --prompt | -p | Content description | Yes |
+| --api-key | -k | API Key (omit if configured) | No |
+| --language | -l | zh-CN / en-US | No |
+| --slide-count | -c | Number of PPT pages | No |
+| --template | -t | PPT template | No |
+| --ratio | -r | 16:9 / 4:3 | No |
+| --export-format | -f | Export format (slide: pptx/image, doc: docx/image, smart_draw: drawio(professional)/excalidraw(hand-drawn)) | No |
+| --file | | Attachment file path (repeatable) | No |
+| --style | -s | Style preference | No |
+
+### Step 3: Check progress — call `status` periodically and report to user
+
+`status` is a **non-blocking single query** — call it, get the result, return immediately.
 
 ```bash
-# Inspect a method's schema
-anygen schema task.create
+python3 ~/.openclaw/skills/anygen/anygen-suite/scripts/anygen.py status \
+  --task-id task_abc123xyz
+# → [STATUS] task_id=task_abc123xyz status=processing progress=60
+
+# JSON output mode:
+python3 ~/.openclaw/skills/anygen/anygen-suite/scripts/anygen.py status \
+  --task-id task_abc123xyz --json
+# → {"task_id": "task_abc123xyz", "status": "processing", "progress": 60}
+```
+
+When `status=completed`, proceed to Step 4. When `status=failed`, report the error to user.
+
+**Progress reporting rules — you MUST follow:**
+
+1. Call `status` every **10 seconds** to poll internally
+2. Only notify the user at **milestone progress points**: 25%, 50%, 75%, 90%, and completion. Do NOT report every small change — this is a long-running task (up to 15 min)
+3. Example user-facing messages at milestones:
+   - 25% → "AnyGen is generating content outline..."
+   - 50% → "Content generated, now designing layout..."
+   - 75% → "Styling and polishing..."
+   - 90% → "Almost done, finalizing..."
+4. **Progress may stay at the same percentage for several minutes.** This is normal — AnyGen performs deep generation (content research, layout design, style rendering) at certain stages. Do NOT assume the task is stuck. Only treat `status=failed` as an error.
+
+### Step 4: Download file
+
+```bash
+python3 ~/.openclaw/skills/anygen/anygen-suite/scripts/anygen.py download \
+  --task-id task_abc123xyz --output ./output/
+```
+
+**Expected output:**
+
+```
+[SUCCESS] File saved: ./output/AI_History.pptx
+[RESULT] Local file: ./output/AI_History.pptx
+[RESULT] Task URL: https://www.anygen.io/task/task_abc123xyz
+```
+
+### Step 5: SmartDraw only — render to PNG
+
+> **Skip this step** unless operation is `smart_draw`.
+
+The downloaded file (.xml/.json) is a diagram source, NOT an image. You **MUST** render it to PNG:
+
+```bash
+bash ~/.openclaw/skills/anygen/anygen-suite/scripts/render-diagram.sh drawio ./output/diagram.xml ./output/diagram.png
+# Or for hand-drawn style (excalidraw):
+bash ~/.openclaw/skills/anygen/anygen-suite/scripts/render-diagram.sh excalidraw ./output/diagram.json ./output/diagram.png
+```
+
+Dependencies are auto-installed on first run. Only Node.js (v18+) is required.
+
+### Step 6: Return results to user
+
+**IMPORTANT — what to tell the user:**
+- **Preview thumbnail** (`slide` / `doc` only) — from `[RESULT] Thumbnail:` line. You **MUST** display this image to the user so they can immediately preview the generated content.
+- **Local file path** — from `[RESULT] Local file:` line (for `smart_draw`, return the rendered PNG path)
+- **Task URL** — from `[RESULT] Task URL:` line, for online viewing/editing
+
+Note: The script auto-downloads files locally. Return the **local file path** to the user instead of the raw `file_url`.
+
+---
+
+## Advanced: IM File Delivery (MEDIA: Protocol)
+
+When running in an **IM context** (e.g., Feishu/Lark bot with OpenClaw), add `--media` to `poll`/`download`:
+
+```bash
+python3 ~/.openclaw/skills/anygen/anygen-suite/scripts/anygen.py poll \
+  --task-id task_abc123xyz --media
+```
+
+Behavior:
+- If `~/.openclaw/workspace/` exists (OpenClaw environment), files are saved there; otherwise saved to `--output` or current directory
+- On completion, the script outputs `MEDIA:/absolute/path/to/file`
+- Send this `MEDIA:` line as a **separate short message** so the framework delivers the file
+
+---
+
+## Error Handling
+
+| Error Message | Description | Solution |
+|---------------|-------------|----------|
+| invalid API key | Invalid API Key | Check if API Key is correct |
+| operation not allowed | No permission for this operation | Contact admin for permissions |
+| prompt is required | Missing prompt | Add --prompt parameter |
+| task not found | Task does not exist | Check if task_id is correct |
+| Generation timeout | Generation timed out | Recreate the task |
+
+## SmartDraw Reference
+
+| Format | --export-format | Export File | Render Command |
+|--------|-----------------|-------------|----------------|
+| Professional (default) | `drawio` | `.xml` | `render-diagram.sh drawio input.xml output.png` |
+| Hand-drawn | `excalidraw` | `.json` | `render-diagram.sh excalidraw input.json output.png` |
+
+**render-diagram.sh options:** `--scale <n>` (default: 2), `--background <hex>` (default: #ffffff), `--padding <px>` (default: 20)
+
+## Notes
+
+- Maximum execution time per task is 15 minutes (customizable via `--max-time`)
+- Download link is valid for 24 hours
+- Single attachment file should not exceed 10MB (after Base64 encoding)
+- Polling interval is 3 seconds
+- SmartDraw local rendering requires Chromium (auto-installed on first run)
+
+## Files
+
+```
+anygen-suite/
+├── skill.md                   # This document
+└── scripts/
+    ├── anygen.py              # Main script (AnyGen API client)
+    ├── package.json           # Node.js dependencies (for diagram rendering)
+    ├── render-diagram.sh      # Wrapper script (auto-install dependencies)
+    └── diagram-to-image.ts    # Diagram to PNG renderer
 ```
